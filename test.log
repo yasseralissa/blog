@@ -1,0 +1,16 @@
+Initializing database...
+Loading sql.js...
+sql.js loaded
+Database ready
+Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at Function.listen (/home/caesar/opencode/node_modules/express/lib/application.js:635:24)
+    at startServer (/home/caesar/opencode/server.js:578:7) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}

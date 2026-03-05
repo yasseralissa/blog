@@ -1,0 +1,666 @@
+// Load environment variables
+try {
+  require('dotenv').config();
+} catch (err) {
+  // dotenv not installed, continue without it
+}
+
+const express = require('express');
+const session = require('express-session');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+
+const { initDatabase, getDb, saveDatabase } = require('./database');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  process.exit(1);
+});
+
+async function startServer() {
+  try {
+    console.log('Initializing database...');
+    await initDatabase();
+    console.log('Database ready');
+  } catch (err) {
+    console.error('DB init error:', err);
+    process.exit(1);
+  }
+ 
+  // app.use(express.json({ limit: '10mb' }));
+  // app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // app.use(compress());
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('X-Frame-Options', 'DENY');
+    res.set('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+  app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1y' }));
+  app.use('/admin', express.static(path.join(__dirname, 'admin'), { maxAge: 0 }));
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'elegant-blog-secret-key-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  }));
+
+  const loginAttempts = new Map();
+  app.use('/api/admin/login', (req, res, next) => {
+    const ip = req.ip;
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const maxAttempts = 5;
+    
+    const attempts = loginAttempts.get(ip) || [];
+    const recentAttempts = attempts.filter(time => now - time < windowMs);
+    
+    if (recentAttempts.length >= maxAttempts) {
+      return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+    }
+    
+    recentAttempts.push(now);
+    loginAttempts.set(ip, recentAttempts);
+    
+    // Clean up old entries occasionally
+    if (loginAttempts.size > 1000) {
+      for (const [key, val] of loginAttempts.entries()) {
+        const filtered = val.filter(time => now - time < windowMs);
+        if (filtered.length === 0) loginAttempts.delete(key);
+      }
+    }
+    
+    next();
+  });
+
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path.startsWith('/api/') && !req.path.startsWith('/api/admin')) {
+      res.set('Cache-Control', 'public, max-age=60');
+    }
+    next();
+  });
+
+  function isAuthenticated(req, res, next) {
+    if (req.session.userId) return next();
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  function validateLogin(req, res, next) {
+    const { username, password } = req.body;
+    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+    if (username.length < 3 || username.length > 50) {
+      return res.status(400).json({ error: 'Username must be between 3 and 50 characters' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    next();
+  }
+
+  function validatePost(req, res, next) {
+    const { title, content, status, category_id } = req.body;
+    
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return res.status(400).json({ error: 'Post title is required' });
+    }
+    if (title.length > 200) {
+      return res.status(400).json({ error: 'Title must be less than 200 characters' });
+    }
+    if (content && typeof content !== 'string') {
+      return res.status(400).json({ error: 'Content must be a string' });
+    }
+    if (status && !['draft', 'published'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be either draft or published' });
+    }
+    if (category_id && (isNaN(category_id) || category_id < 1)) {
+      return res.status(400).json({ error: 'Invalid category ID' });
+    }
+    
+    // Basic HTML sanitization
+    if (content && content.length > 0) {
+      let sanitized = content;
+      // Remove script tags
+      sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      // Remove event handlers (onclick, onload, etc.)
+      sanitized = sanitized.replace(/ on\w+="[^"]*"/gi, '');
+      sanitized = sanitized.replace(/ on\w+='[^']*'/gi, '');
+      sanitized = sanitized.replace(/ on\w+=\w+/gi, '');
+      // Remove javascript: links
+      sanitized = sanitized.replace(/href="javascript:[^"]*"/gi, 'href="#"');
+      sanitized = sanitized.replace(/href='javascript:[^']*'/gi, 'href="#"');
+      sanitized = sanitized.replace(/href=javascript:\w+/gi, 'href="#"');
+      // Remove iframe, object, embed tags
+      sanitized = sanitized.replace(/<\/?(iframe|object|embed)[^>]*>/gi, '');
+      req.body.content = sanitized;
+    }
+    
+    next();
+  }
+
+  function validateCategory(req, res, next) {
+    const { name, description } = req.body;
+    
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
+    if (name.length > 100) {
+      return res.status(400).json({ error: 'Category name must be less than 100 characters' });
+    }
+    if (description && typeof description !== 'string') {
+      return res.status(400).json({ error: 'Description must be a string' });
+    }
+    if (description && description.length > 500) {
+      return res.status(400).json({ error: 'Description must be less than 500 characters' });
+    }
+    
+    next();
+  }
+
+  function timeout(ms) {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms));
+  }
+
+  function escapeXml(unsafe) {
+    if (typeof unsafe !== 'string') return unsafe;
+    return unsafe.replace(/[&<>"']/g, (c) => {
+      switch (c) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&apos;';
+        default: return c;
+      }
+    });
+  }
+
+  function queryOne(sql, params = []) {
+    const db = getDb();
+    const stmt = db.prepare(sql);
+    stmt.bind(params);
+    if (stmt.step()) {
+      const row = stmt.getAsObject();
+      stmt.free();
+      return row;
+    }
+    stmt.free();
+    return null;
+  }
+
+  function queryAll(sql, params = []) {
+    const db = getDb();
+    const stmt = db.prepare(sql);
+    if (params.length > 0) stmt.bind(params);
+    const results = [];
+    while (stmt.step()) {
+      results.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return results;
+  }
+
+  function run(sql, params = []) {
+    try {
+      const db = getDb();
+      const stmt = db.prepare(sql);
+      const cleanParams = params.map(p => p === undefined ? null : p);
+      stmt.bind(cleanParams);
+      stmt.step();
+      stmt.free();
+      // Queue async save, don't wait for it
+      saveDatabase().catch(err => console.error('Background save failed:', err));
+      return { lastID: db.exec("SELECT last_insert_rowid()")[0]?.values[0][0] };
+    } catch (err) {
+      console.error('Database operation failed:', err, 'SQL:', sql);
+      throw err;
+    }
+  }
+
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'index.html'));
+  });
+
+  app.get('/post/:slug', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'post.html'));
+  });
+
+  app.get('/category/:slug', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'category.html'));
+  });
+
+  app.get('/admin', (req, res) => {
+    res.redirect('/admin/');
+  });
+
+  app.get('/admin/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'index.html'));
+  });
+
+  app.get('/admin/posts', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'posts.html'));
+  });
+
+  app.get('/admin/posts.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'posts.html'));
+  });
+
+  app.get('/admin/post.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'post.html'));
+  });
+
+  app.get('/admin/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'settings.html'));
+  });
+
+  app.get('/admin/settings.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'settings.html'));
+  });
+
+  app.get('/admin/categories', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'categories.html'));
+  });
+
+  app.get('/api/settings', (req, res) => {
+    const settings = queryAll('SELECT key, value FROM settings');
+    const result = {};
+    settings.forEach(s => result[s.key] = s.value);
+    res.json(result);
+  });
+
+  app.get('/api/posts', (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 9;
+    const offset = (page - 1) * limit;
+    const categoryId = req.query.category;
+
+    let query = `
+      SELECT p.*, c.name as category_name, c.slug as category_slug, u.username as author_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.author_id = u.id
+      WHERE p.status = 'published'
+    `;
+    let countQuery = `SELECT COUNT(*) as total FROM posts WHERE status = 'published'`;
+
+    if (categoryId) {
+      query += ` AND p.category_id = ?`;
+      countQuery += ` AND category_id = ?`;
+    }
+
+    query += ` ORDER BY p.published_at DESC LIMIT ? OFFSET ?`;
+
+    const posts = categoryId
+      ? queryAll(query, [categoryId, limit, offset])
+      : queryAll(query, [limit, offset]);
+    const total = categoryId
+      ? queryOne(countQuery, [categoryId])?.total || 0
+      : queryOne(countQuery)?.total || 0;
+
+    res.json({ posts, total, page, totalPages: Math.ceil(total / limit) });
+  });
+
+  app.get('/api/posts/:slug', (req, res) => {
+    const post = queryOne(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug, u.username as author_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.author_id = u.id
+      WHERE p.slug = ? AND p.status = 'published'
+    `, [req.params.slug]);
+
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    res.json(post);
+  });
+
+  app.get('/api/categories', (req, res) => {
+    const categories = queryAll(`
+      SELECT c.*, COUNT(p.id) as post_count
+      FROM categories c
+      LEFT JOIN posts p ON c.id = p.category_id AND p.status = 'published'
+      GROUP BY c.id
+    `);
+    res.json(categories);
+  });
+
+  app.get('/api/categories/:slug', (req, res) => {
+    const category = queryOne('SELECT * FROM categories WHERE slug = ?', [req.params.slug]);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+    res.json(category);
+  });
+
+  app.get('/api/search', (req, res) => {
+    let q = (req.query.q || '').trim();
+    if (!q) return res.json([]);
+    if (q.length > 100) q = q.substring(0, 100);
+    const posts = queryAll(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.status = 'published' AND (p.title LIKE ? OR p.content LIKE ?)
+      ORDER BY p.published_at DESC
+      LIMIT 20
+    `, [`%${q}%`, `%${q}%`]);
+    res.json(posts);
+  });
+
+  app.get('/sitemap.xml', (req, res) => {
+    const posts = queryAll("SELECT slug, updated_at FROM posts WHERE status = 'published'");
+    const categories = queryAll('SELECT slug FROM categories');
+    const baseUrl = 'https://elegantblog.com';
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    xml += `<url><loc>${baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n`;
+
+    categories.forEach(c => {
+      const escapedSlug = escapeXml(c.slug);
+      xml += `<url><loc>${baseUrl}/category/${escapedSlug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+    });
+
+    posts.forEach(p => {
+      const escapedSlug = escapeXml(p.slug);
+      xml += `<url><loc>${baseUrl}/post/${escapedSlug}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
+    });
+
+    xml += '</urlset>';
+    res.type('application/xml').send(xml);
+  });
+
+  app.get('/rss.xml', (req, res) => {
+    const posts = queryAll(`
+      SELECT p.*, c.name as category_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.status = 'published'
+      ORDER BY p.published_at DESC
+      LIMIT 20
+    `);
+
+    const settings = {};
+    queryAll('SELECT key, value FROM settings').forEach(s => settings[s.key] = s.value);
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rss version="2.0">\n';
+    xml += '<channel>\n';
+    const siteTitle = escapeXml(settings.site_title || 'ElegantBlog');
+    const siteDescription = escapeXml(settings.site_description || '');
+    xml += `<title>${siteTitle}</title>\n`;
+    xml += `<description>${siteDescription}</description>\n`;
+    xml += '<link>https://elegantblog.com</link>\n';
+
+    posts.forEach(p => {
+      const escapedTitle = escapeXml(p.title);
+      const escapedExcerpt = escapeXml(p.excerpt || '');
+      const escapedSlug = escapeXml(p.slug);
+      xml += '<item>\n';
+      xml += `<title>${escapedTitle}</title>\n`;
+      xml += `<description>${escapedExcerpt}</description>\n`;
+      xml += `<link>https://elegantblog.com/post/${escapedSlug}</link>\n`;
+      xml += `<pubDate>${new Date(p.published_at).toUTCString()}</pubDate>\n`;
+      xml += '</item>\n';
+    });
+
+    xml += '</channel>\n</rss>';
+    res.type('application/xml').send(xml);
+  });
+
+  app.post('/api/admin/login', validateLogin, (req, res) => {
+    const { username, password } = req.body;
+    const user = queryOne('SELECT * FROM users WHERE username = ?', [username]);
+
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    loginAttempts.delete(req.ip);
+    res.json({ success: true, username: user.username });
+  });
+
+  app.post('/api/admin/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
+  });
+
+  app.get('/api/admin/me', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    res.json({ username: req.session.username });
+  });
+
+  app.get('/api/admin/dashboard', isAuthenticated, (req, res) => {
+    const stats = {
+      totalPosts: queryOne("SELECT COUNT(*) as count FROM posts")?.count || 0,
+      publishedPosts: queryOne("SELECT COUNT(*) as count FROM posts WHERE status = 'published'")?.count || 0,
+      draftPosts: queryOne("SELECT COUNT(*) as count FROM posts WHERE status = 'draft'")?.count || 0,
+      categories: queryOne('SELECT COUNT(*) as count FROM categories')?.count || 0
+    };
+
+    const recentPosts = queryAll(`
+      SELECT p.*, c.name as category_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
+      LIMIT 5
+    `);
+
+    res.json({ stats, recentPosts });
+  });
+
+  app.get('/api/admin/posts', isAuthenticated, (req, res) => {
+    const posts = queryAll(`
+      SELECT p.*, c.name as category_name, u.username as author_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.author_id = u.id
+      ORDER BY p.created_at DESC
+    `);
+    res.json(posts);
+  });
+
+  app.get('/api/admin/posts/:id', isAuthenticated, (req, res) => {
+    const post = queryOne(`
+      SELECT p.*, c.name as category_name, u.username as author_name
+      FROM posts p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.author_id = u.id
+      WHERE p.id = ?
+    `, [req.params.id]);
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    res.json(post);
+  });
+
+  app.post('/api/admin/posts', isAuthenticated, validatePost, (req, res) => {
+    const { title, content, excerpt, featured_image, status, category_id, meta_title, meta_description } = req.body;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+
+    run(`
+      INSERT INTO posts (title, slug, content, excerpt, featured_image, status, category_id, author_id, meta_title, meta_description, published_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [title, slug, content, excerpt, featured_image, status, category_id, req.session.userId, meta_title, meta_description, status === 'published' ? new Date().toISOString() : null]);
+
+    const lastId = queryOne('SELECT last_insert_rowid() as id')?.id;
+    res.json({ id: lastId, slug });
+  });
+
+  app.put('/api/admin/posts/:id', isAuthenticated, validatePost, (req, res) => {
+    const { title, content, excerpt, featured_image, status, category_id, meta_title, meta_description } = req.body;
+
+    run(`
+      UPDATE posts
+      SET title = ?, content = ?, excerpt = ?, featured_image = ?, status = ?, category_id = ?,
+          meta_title = ?, meta_description = ?, updated_at = datetime('now'),
+          published_at = CASE WHEN status = 'published' AND published_at IS NULL THEN datetime('now') ELSE published_at END
+      WHERE id = ?
+    `, [title, content, excerpt, featured_image, status, category_id, meta_title, meta_description, req.params.id]);
+
+    res.json({ success: true });
+  });
+
+  app.delete('/api/admin/posts/:id', isAuthenticated, (req, res) => {
+    run('DELETE FROM posts WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  });
+
+  app.get('/api/admin/categories', isAuthenticated, (req, res) => {
+    const categories = queryAll(`
+      SELECT c.*, COUNT(p.id) as post_count
+      FROM categories c
+      LEFT JOIN posts p ON c.id = p.category_id
+      GROUP BY c.id
+    `);
+    res.json(categories);
+  });
+
+  app.post('/api/admin/categories', isAuthenticated, validateCategory, (req, res) => {
+    const { name, description } = req.body;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    run('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)', [name, slug, description]);
+    const lastId = queryOne('SELECT last_insert_rowid() as id')?.id;
+    res.json({ id: lastId, slug });
+  });
+
+  app.put('/api/admin/categories/:id', isAuthenticated, validateCategory, (req, res) => {
+    const { name, description } = req.body;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    run('UPDATE categories SET name = ?, slug = ?, description = ? WHERE id = ?', [name, slug, description, req.params.id]);
+    res.json({ success: true });
+  });
+
+  app.delete('/api/admin/categories/:id', isAuthenticated, (req, res) => {
+    run('UPDATE posts SET category_id = NULL WHERE category_id = ?', [req.params.id]);
+    run('DELETE FROM categories WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  });
+
+  app.put('/api/admin/settings', isAuthenticated, (req, res) => {
+    const { key, value } = req.body;
+    const existing = queryOne('SELECT id FROM settings WHERE key = ?', [key]);
+    if (existing) {
+      run('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
+    } else {
+      run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/admin/ai/generate', isAuthenticated, async (req, res) => {
+    const { prompt, type } = req.body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    if (prompt.length > 10000) {
+      return res.status(400).json({ error: 'Prompt must be less than 10000 characters' });
+    }
+
+    const settings = {};
+    queryAll('SELECT key, value FROM settings').forEach(s => settings[s.key] = s.value);
+
+    const apiKey = settings.ai_api_key;
+    if (!apiKey) {
+      return res.status(400).json({ error: 'AI API key not configured. Go to Settings to add one.' });
+    }
+
+    const provider = settings.ai_provider || 'openai';
+    const model = settings.ai_model || (provider === 'anthropic' ? 'claude-3-sonnet-20240229' : provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4');
+    const temperature = parseFloat(settings.ai_temperature) || 0.7;
+
+    try {
+      // AI generation with 60 second timeout
+      const result = await Promise.race([
+        (async () => {
+          if (provider === 'openrouter') {
+            const baseUrl = settings.openrouter_base_url || 'https://openrouter.ai/api/v1';
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': 'https://azureful.net',
+                'X-Title': 'Azureful.Net Blog'
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: temperature,
+                max_tokens: 2000
+              })
+            });
+            
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.error?.message || `OpenRouter error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.choices[0].message.content;
+            
+          } else if (provider === 'anthropic') {
+            const Anthropic = require('@anthropic-ai/sdk');
+            const anthropic = new Anthropic({ apiKey });
+            const response = await anthropic.messages.create({
+              model: model,
+              max_tokens: 2000,
+              temperature: temperature,
+              messages: [{ role: 'user', content: prompt }]
+            });
+            return response.content[0].text;
+            
+          } else if (provider === 'deepseek') {
+            const OpenAI = require('openai');
+            const openai = new OpenAI({ 
+              apiKey, 
+              baseURL: 'https://api.deepseek.com/v1' 
+            });
+            const response = await openai.chat.completions.create({
+              model: model,
+              temperature: temperature,
+              max_tokens: 2000,
+              messages: [{ role: 'user', content: prompt }]
+            });
+            return response.choices[0].message.content;
+            
+          } else {
+            const OpenAI = require('openai');
+            const openai = new OpenAI({ apiKey });
+            const response = await openai.chat.completions.create({
+              model: model,
+              temperature: temperature,
+              max_tokens: 2000,
+              messages: [{ role: 'user', content: prompt }]
+            });
+            return response.choices[0].message.content;
+          }
+        })(),
+        timeout(60000)
+      ]);
+
+      res.json({ content: result });
+    } catch (error) {
+      console.error('AI generation error:', error);
+      res.status(500).json({ error: error.message || 'AI generation failed' });
+    }
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Admin panel at http://localhost:${PORT}/admin`);
+  });
+}
+
+startServer().catch(console.error);

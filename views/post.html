@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="theme-color" content="#0f0f1a">
+  
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="">
+  <meta property="og:description" content="">
+  <meta property="og:image" content="">
+  <meta property="og:url" content="">
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="">
+  <meta name="twitter:description" content="">
+  
+  <title>Loading...</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
+  <link rel="canonical" href="">
+  <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/rss.xml">
+  <script>
+    (async function() {
+      try {
+        const response = await fetch('/api/settings');
+        const settings = await response.json();
+        const gaId = settings.google_analytics_id;
+        if (gaId) {
+          const script1 = document.createElement('script');
+          script1.async = true;
+          script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+          document.head.appendChild(script1);
+          
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  </script>
+</head>
+<body>
+  <nav>
+    <div class="container nav-inner">
+      <a href="/" class="logo">ElegantBlog</a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/#categories">Categories</a></li>
+        <li><a href="/rss.xml">RSS</a></li>
+      </ul>
+      <button class="search-toggle" id="search-toggle" aria-label="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-4.35-4.35"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <article class="post-page">
+    <div class="container">
+      <header class="post-page-header">
+        <span class="category-tag" id="post-category"></span>
+        <h1 id="post-title">Loading...</h1>
+        <div class="post-page-meta" id="post-meta"></div>
+      </header>
+
+      <img src="" alt="" class="post-page-image" id="post-image">
+
+      <div class="post-page-content" id="post-content">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <div class="post-share">
+        <span>Share:</span>
+        <a href="#" onclick="shareTwitter()" title="Share on Twitter">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="#" onclick="shareFacebook()" title="Share on Facebook">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        </a>
+        <a href="#" onclick="shareLinkedIn()" title="Share on LinkedIn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        </a>
+        <a href="#" onclick="copyLink()" title="Copy Link">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        </a>
+      </div>
+
+      <section class="related-posts" id="related-posts"></section>
+    </div>
+  </article>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="/" class="logo">ElegantBlog</a>
+          <p>A modern blog platform with AI-powered content generation.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/rss.xml">RSS Feed</a></li>
+          </ul>
+        </div>
+        <div class="footer-categories">
+          <h4>Categories</h4>
+          <ul>
+            <li><a href="/category/technology">Technology</a></li>
+            <li><a href="/category/lifestyle">Lifestyle</a></li>
+            <li><a href="/category/business">Business</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 ElegantBlog. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="search-overlay" id="search-overlay">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search articles..." autocomplete="off">
+      <button class="search-close" id="search-close">&times;</button>
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+
+  <script src="/js/main.js"></script>
+  <script>
+    const postTitle = document.getElementById('post-title').textContent;
+    const postUrl = window.location.href;
+
+    function shareTwitter() {
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(postTitle)}&url=${encodeURIComponent(postUrl)}`, '_blank');
+    }
+
+    function shareFacebook() {
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`, '_blank');
+    }
+
+    function shareLinkedIn() {
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`, '_blank');
+    }
+
+    function copyLink() {
+      navigator.clipboard.writeText(postUrl);
+      alert('Link copied to clipboard!');
+    }
+  </script>
+</body>
+</html>

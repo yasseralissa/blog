@@ -1,0 +1,14 @@
+Initializing database...
+Loading sql.js...
+sql.js loaded
+Database ready
+Server running at http://localhost:3000
+Admin panel at http://localhost:3000/admin
+AI generation error: Error: Request timeout after 60000ms
+    at Timeout._onTimeout (/home/caesar/opencode/server.js:171:63)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+AI generation error: Error: Request timeout after 60000ms
+    at Timeout._onTimeout (/home/caesar/opencode/server.js:171:63)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)

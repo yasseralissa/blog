@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Post - Azureful.Net</title>
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
+</head>
+<body>
+  <div class="admin-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1><a href="/admin">Azureful.Net</a></h1>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Content</div>
+          <a href="/admin" class="nav-item" data-page="dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Dashboard
+          </a>
+          <a href="/admin/posts" class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Posts
+          </a>
+          <a href="/admin/categories" class="nav-item" data-page="categories">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            Categories
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Settings</div>
+          <a href="/admin/settings" class="nav-item" data-page="settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Settings
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-menu">
+          <div class="user-avatar" id="user-avatar">A</div>
+          <div class="user-info">
+            <div class="user-name" id="user-name">Admin</div>
+            <div class="user-logout" id="logout-btn">Sign out</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <h1 class="page-title" id="page-title">New Post</h1>
+        <div class="page-actions">
+          <button class="btn btn-secondary" onclick="savePost('draft')">Save Draft</button>
+          <button class="btn btn-primary" onclick="savePost('published')">Publish</button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <div class="editor-layout">
+          <div class="editor-main">
+            <input type="hidden" id="post-id">
+            
+            <div class="form-group">
+              <label>Title</label>
+              <input type="text" id="post-title" placeholder="Enter post title..." required>
+            </div>
+
+            <div class="form-group">
+              <label>Content</label>
+              <div id="editor-container" style="height: 450px;"></div>
+              <input type="hidden" id="post-content">
+            </div>
+
+            <div class="form-group">
+              <label>Excerpt</label>
+              <textarea id="post-excerpt" placeholder="Brief description for previews and SEO..." rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="editor-sidebar">
+            <div class="sidebar-card">
+              <h3>Post Settings</h3>
+              <div class="form-group">
+                <label>Status</label>
+                <select id="post-status">
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="post-category">
+                  <option value="">Select category...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Featured Image URL</label>
+                <input type="url" id="post-image" placeholder="https://example.com/image.jpg">
+                <div id="image-preview" class="image-preview"></div>
+              </div>
+            </div>
+
+            <div class="sidebar-card">
+              <h3>AI Assistant</h3>
+              <div id="ai-status" class="ai-status"></div>
+              <div class="form-group">
+                <label>AI Task</label>
+                 <select id="ai-task">
+                  <option value="complete">Generate Complete Post</option>
+                  <option value="generate">Generate Full Post</option>
+                  <option value="expand">Expand Content</option>
+                  <option value="improve">Improve Writing</option>
+                  <option value="titles">Generate Title Ideas</option>
+                  <option value="excerpt">Generate Excerpt</option>
+                  <option value="outline">Create Outline</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Topic / Instructions</label>
+                <textarea id="ai-prompt" placeholder="e.g., Write about Azure Functions best practices..." rows="4"></textarea>
+              </div>
+              <button class="btn btn-primary btn-full" id="ai-generate-btn" onclick="generateAI()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                Generate with AI
+              </button>
+            </div>
+
+            <div class="sidebar-card">
+              <h3>SEO Settings</h3>
+              <div class="form-group">
+                <label>Meta Title</label>
+                <input type="text" id="post-meta-title" placeholder="Override for search engines">
+                <div class="char-count"><span id="meta-title-count">0</span>/60</div>
+              </div>
+              <div class="form-group">
+                <label>Meta Description</label>
+                <textarea id="post-meta-description" placeholder="Override for search engines" rows="3"></textarea>
+                <div class="char-count"><span id="meta-desc-count">0</span>/160</div>
+              </div>
+              <button class="btn btn-secondary btn-small btn-full" onclick="generateMeta()">Generate Meta with AI</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+      <div class="spinner-large"></div>
+      <p id="loading-text">Generating content...</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+  <script src="/admin/js/post-editor.js"></script>
+</body>
+</html>

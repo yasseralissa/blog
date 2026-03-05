@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A modern blog with AI-powered content generation">
+  <meta name="theme-color" content="#0f0f1a">
+  
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ElegantBlog">
+  <meta property="og:description" content="A modern blog with AI-powered content generation">
+  <meta property="og:image" content="/images/og-image.jpg">
+  <meta property="og:url" content="https://elegantblog.com">
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ElegantBlog">
+  <meta name="twitter:description" content="A modern blog with AI-powered content generation">
+  
+  <title>ElegantBlog</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
+  <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/rss.xml">
+  <script>
+    (async function() {
+      try {
+        const response = await fetch('/api/settings');
+        const settings = await response.json();
+        const gaId = settings.google_analytics_id;
+        if (gaId) {
+          const script1 = document.createElement('script');
+          script1.async = true;
+          script1.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+          document.head.appendChild(script1);
+          
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  </script>
+</head>
+<body>
+  <nav>
+    <div class="container nav-inner">
+      <a href="/" class="logo">ElegantBlog</a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/#categories">Categories</a></li>
+        <li><a href="/rss.xml">RSS</a></li>
+      </ul>
+      <button class="search-toggle" id="search-toggle" aria-label="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="M21 21l-4.35-4.35"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container hero-content">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="section-header">
+      <h2>Latest Articles</h2>
+    </div>
+    <div class="blog-grid" id="blog-grid">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <section class="categories-section" id="categories">
+    <div class="container">
+      <div class="section-header">
+        <h2>Browse by Category</h2>
+      </div>
+      <div class="categories-grid" id="categories-grid">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="/" class="logo">ElegantBlog</a>
+          <p>A modern blog platform with AI-powered content generation. Discover insightful articles on technology, lifestyle, and more.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+
+            <li><a href="/rss.xml">RSS Feed</a></li>
+            <li><a href="/sitemap.xml">Sitemap</a></li>
+          </ul>
+        </div>
+        <div class="footer-categories">
+          <h4>Categories</h4>
+          <ul>
+            <li><a href="/category/technology">Technology</a></li>
+            <li><a href="/category/lifestyle">Lifestyle</a></li>
+            <li><a href="/category/business">Business</a></li>
+            <li><a href="/category/tutorial">Tutorial</a></li>
+          </ul>
+        </div>
+        <div class="footer-categories">
+          <h4>Connect</h4>
+          <ul>
+            <li><a href="#">Twitter</a></li>
+            <li><a href="#">GitHub</a></li>
+            <li><a href="#">LinkedIn</a></li>
+            <li><a href="#">RSS</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 ElegantBlog. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="search-overlay" id="search-overlay">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search articles..." autocomplete="off">
+      <button class="search-close" id="search-close">&times;</button>
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>
